@@ -28,4 +28,16 @@ Public reads use `GET /api/tuitions` and `GET /api/tuitions/:id`. The list accep
 
 Students can submit to `POST /api/tuitions/:id/applications`, list at `GET /api/student/my-applications`, and cancel a pending application with `DELETE /api/student/my-applications/:id`. Tutors list their applicants with `GET /api/tutor/applicants` and decide pending applications with `PATCH /api/tutor/applicants/:id/accept` or `/reject`.
 
+### Payment modes
+
+Set `PAYMENT_MODE=mock` for local development without a Stripe account. Register test accounts in the isolated `mentorlagbe_mock` database. The mock checkout lets those accounts simulate success, failure, or cancellation without collecting money. Use a non-production server environment. Startup rejects mock mode when `NODE_ENV=production`.
+
+Set `PAYMENT_MODE=disabled` to disable checkout. Set `PAYMENT_MODE=stripe` to use Stripe. Outside production, this mode uses the isolated `mentorlagbe_stripe_test` database and requires test keys. In production, it uses `mentorlagbe` and requires live keys and an endpoint-specific signing secret.
+
+### Stripe sandbox verification
+
+Set `STRIPE_SECRET_KEY` to a Stripe test secret key and `STRIPE_WEBHOOK_SECRET` to the signing secret for this webhook endpoint. Keep both values in the server environment. For local development, use `stripe listen --forward-to localhost:5000/api/payments/webhook --events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,checkout.session.expired` and use the signing secret printed by the CLI.
+
+Student Pro costs $10 USD and Tutor Pro costs $15 USD. Each is a one-time Checkout payment. Leave webhook forwarding running through confirmation, or the payment history will stay pending until Stripe delivers the event. Checkout and its return pages use the configured client origin.
+
 The tuition suite uses a database double by default. Set `TUITION_TEST_MONGODB_URI` to a test replica set and run `npm test` to exercise the same cases with MongoDB. The suite creates and drops its own temporary database.

@@ -246,10 +246,10 @@ it("publishes only approved and active tuitions and exposes only public detail f
   const fixtures = [
     { approvalStatus: "approved", isActive: true, title: "Public calculus" },
     { approvalStatus: "approved", isActive: true, title: "Public + chemistry", format: "Online", classLevel: "HSC" },
-    { approvalStatus: "approved", isActive: true, title: "Public geometry" },
-    { approvalStatus: "approved", isActive: false, title: "Hidden inactive" },
-    { approvalStatus: "pending", isActive: true, title: "Hidden pending" },
-    { approvalStatus: "rejected", isActive: true, title: "Hidden rejected" },
+    { approvalStatus: "approved", isActive: true, title: "Public geometry", classLevel: "hsc" },
+    { approvalStatus: "approved", isActive: false, title: "Hidden inactive", classLevel: "Hidden class" },
+    { approvalStatus: "pending", isActive: true, title: "Hidden pending", classLevel: "Hidden pending class" },
+    { approvalStatus: "rejected", isActive: true, title: "Hidden rejected", classLevel: "Hidden rejected class" },
   ];
   for (const [index, fixture] of fixtures.entries()) {
     fixture._id = new ObjectId();
@@ -297,12 +297,17 @@ it("publishes only approved and active tuitions and exposes only public detail f
     ["classLevel=hs", []],
     ["classLevel=.%2A", []],
     ["mode=home&subject=Public+science", [ids[0], ids[2]]],
-    ["classLevel=hsc&mode=home&subject=Public+science", []],
+    ["classLevel=hsc&mode=home&subject=Public+science", [ids[0]]],
   ]) {
     const result = await publicRequest("?" + query);
     assert.equal(result.status, 200);
     assert.deepEqual((await result.json()).items.map(({ _id }) => _id), expected, query);
   }
+
+  const classOptions = await publicRequest("/class-levels");
+  assert.equal(classOptions.status, 200);
+  const normalizedOptions = (await classOptions.json()).classLevels.map((level) => level.toLowerCase());
+  assert.deepEqual(normalizedOptions, ["hsc"]);
 
   const detailsResponse = await publicRequest("/" + ids[1]);
   assert.equal(detailsResponse.status, 200);
@@ -541,6 +546,7 @@ function memoryDatabase() {
           return cursor;
         },
         aggregate: (pipeline) => ({ next: async () => reviewPage(items, collections.user, pipeline) }),
+        distinct: async (key, filter) => [...new Set(items.filter((item) => matches(item, filter)).map((item) => item[key]))],
         countDocuments: async (filter) => items.filter((item) => matches(item, filter)).length,
         insertOne: async (data) => {
           if (name === "applications" && find({ tuitionId: data.tuitionId, studentId: data.studentId })) {

@@ -6,7 +6,7 @@ import { jwtAlgorithm } from "../config/jwt.js";
 type Role = "student" | "tutor" | "admin";
 
 export function createVerifyToken(db: Db, issuer: string, getJwks: () => Promise<JSONWebKeySet>): RequestHandler {
-  const users = db.collection<{ _id: ObjectId; role?: unknown }>("user");
+  const users = db.collection<{ _id: ObjectId; role?: unknown; disabled?: boolean }>("user");
 
   return async (req, res, next) => {
     const token = /^Bearer +([\w-]+\.[\w-]+\.[\w-]+)$/i.exec(req.get("authorization") ?? "")?.[1];
@@ -31,10 +31,15 @@ export function createVerifyToken(db: Db, issuer: string, getJwks: () => Promise
 
     // Better Auth's MongoDB adapter exposes the user's ObjectId as a hex string.
     const user = subject && ObjectId.isValid(subject)
-      ? await users.findOne({ _id: new ObjectId(subject) }, { projection: { role: 1 } })
+      ? await users.findOne({ _id: new ObjectId(subject) }, { projection: { role: 1, disabled: 1 } })
       : null;
     if (!user || !subject) {
       res.set("WWW-Authenticate", 'Bearer error="invalid_token"').status(401).json({ error: "Invalid Bearer token" });
+      return;
+    }
+
+    if (user.disabled === true) {
+      res.status(403).json({ error: "This account is disabled." });
       return;
     }
 

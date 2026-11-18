@@ -6,7 +6,12 @@ import { createAuth } from "./config/auth.js";
 import { connectDB } from "./config/db.js";
 import { createVerifyToken } from "./middleware/authorization.js";
 import { applicationRoutes, ensureApplicationIndexes } from "./routes/applications.js";
+import { adminStatsRoutes } from "./routes/admin-stats.js";
+import { adminUserRoutes, ensureAdminGuard } from "./routes/admin-users.js";
 import { adminTuitionRoutes } from "./routes/admin-tuitions.js";
+import { configurePayments } from "./payments/stripe.js";
+import { ensurePaymentIndexes, paymentRoutes } from "./routes/payments.js";
+import { profileRoutes } from "./routes/profile.js";
 import { publicTuitionRoutes } from "./routes/public-tuitions.js";
 import { roleTestRoutes } from "./routes/role-tests.js";
 import { ensureTuitionIndexes, tuitionRoutes } from "./routes/tuitions.js";
@@ -21,6 +26,8 @@ async function startServer() {
     const db = await connectDB();
     await ensureTuitionIndexes(db);
     await ensureApplicationIndexes(db);
+    await ensurePaymentIndexes(db);
+    await ensureAdminGuard(db);
     const auth = createAuth(db, baseURL, clientOrigin);
 
     app.use(cors({ origin: [clientOrigin, baseURL], credentials: true }));
@@ -32,9 +39,13 @@ async function startServer() {
 
     const verifyToken = createVerifyToken(db, baseURL, () => auth.api.getJwks());
     app.use("/api/tutor/tuitions", tuitionRoutes(db, verifyToken));
+    app.use("/api/admin/stats", adminStatsRoutes(db, verifyToken));
+    app.use("/api/admin/users", adminUserRoutes(db, verifyToken));
     app.use("/api/admin/tuitions", adminTuitionRoutes(db, verifyToken));
     app.use("/api/tuitions", publicTuitionRoutes(db));
     app.use("/api", applicationRoutes(db, verifyToken));
+    app.use("/api", paymentRoutes(db, verifyToken, clientOrigin, configurePayments()));
+    app.use("/api/users/me", profileRoutes(db, verifyToken));
     app.use(express.json());
     app.use("/api", roleTestRoutes(verifyToken));
 

@@ -14,7 +14,7 @@ export function isHostedImage(value: string) {
 
 export const readImage = express.raw({ type: imageTypes, limit: "5mb", inflate: false });
 
-export const uploadTuitionImage: RequestHandler = async (req, res) => {
+export const uploadImage: RequestHandler = async (req, res) => {
   const file: unknown = req.body;
   const mime = req.get("content-type")?.split(";")[0].trim().toLowerCase();
   const valid = Buffer.isBuffer(file) && (
@@ -36,7 +36,7 @@ export const uploadTuitionImage: RequestHandler = async (req, res) => {
   const endpoint = new URL("https://api.imgbb.com/1/upload");
   endpoint.searchParams.set("key", key);
   const body = new FormData();
-  body.set("image", new Blob([new Uint8Array(file)], { type: mime }), "tuition." + mime?.slice(6));
+  body.set("image", new Blob([new Uint8Array(file)], { type: mime }), "upload." + mime?.slice(6));
   try {
     const response = await fetch(endpoint, {
       method: "POST",

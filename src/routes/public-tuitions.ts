@@ -56,6 +56,18 @@ export function publicTuitionRoutes(db: Db) {
     res.json({ items, total, page, limit });
   });
 
+  router.get("/class-levels", async (_req, res) => {
+    const values = await posts.distinct("classLevel", publicTuitionVisibility);
+    const classLevels = new Map<string, string>();
+    for (const value of values) {
+      if (typeof value !== "string" || !value.trim()) continue;
+      const label = value.trim();
+      const key = label.toLowerCase();
+      if (!classLevels.has(key)) classLevels.set(key, label);
+    }
+    res.json({ classLevels: [...classLevels.values()].sort(new Intl.Collator("en", { numeric: true }).compare) });
+  });
+
   router.get("/:id", async (req, res) => {
     const id = idSchema.safeParse(req.params.id);
     if (!id.success) {

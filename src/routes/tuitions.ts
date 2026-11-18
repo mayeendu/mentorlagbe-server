@@ -2,7 +2,7 @@ import { json, Router, type ErrorRequestHandler, type RequestHandler } from "exp
 import { ObjectId, type Db } from "mongodb";
 import { z } from "zod";
 import { verifyTutor } from "../middleware/authorization.js";
-import { isHostedImage, readImage, uploadTuitionImage } from "./tuition-images.js";
+import { isHostedImage, readImage, uploadImage } from "./tuition-images.js";
 
 const details = z.strictObject({
   title: z.string().trim().min(3).max(100),
@@ -43,7 +43,7 @@ export const tuitionError: ErrorRequestHandler = (error, _req, res, next) => {
     return;
   }
   if (error.status === 413) {
-    res.status(413).json({ error: _req.path === "/image" ? "Images must be 5 MB or smaller." : "Request body is too large." });
+    res.status(413).json({ error: ["/image", "/avatar"].includes(_req.path) ? "Images must be 5 MB or smaller." : "Request body is too large." });
   } else if (error.status === 400) {
     res.status(400).json({ error: "Invalid request body." });
   } else if (error.status === 415) {
@@ -59,7 +59,7 @@ export function tuitionRoutes(db: Db, verifyToken: RequestHandler) {
   const users = db.collection<{ _id: ObjectId; role: string; plan?: string }>("user");
 
   router.use(verifyToken, verifyTutor);
-  router.post("/image", readImage, uploadTuitionImage);
+  router.post("/image", readImage, uploadImage);
   router.use(json({ limit: "32kb" }));
   router.param("id", (_req, res, next, id) => {
     if (!idSchema.safeParse(id).success) {

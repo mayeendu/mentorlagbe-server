@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { APIError, createAuthMiddleware } from "better-auth/api";
-import type { Db } from "mongodb";
+import { ObjectId, type Db } from "mongodb";
 import { apiJwt } from "./jwt.js";
 
 export function createAuth(db: Db, baseURL: string, clientOrigin: string) {
@@ -37,6 +37,15 @@ export function createAuth(db: Db, baseURL: string, clientOrigin: string) {
       }),
     },
     databaseHooks: {
+      session: {
+        create: {
+          before: async (session) => {
+            if (!ObjectId.isValid(session.userId)) return;
+            const user = await db.collection("user").findOne({ _id: new ObjectId(session.userId) }, { projection: { disabled: 1 } });
+            if (user?.disabled === true) throw new APIError("FORBIDDEN", { message: "This account is disabled." });
+          },
+        },
+      },
       user: {
         create: {
           before: async (user, context) => ({
