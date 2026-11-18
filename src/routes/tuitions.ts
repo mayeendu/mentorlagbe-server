@@ -1,6 +1,8 @@
-import { json, Router, type ErrorRequestHandler, type RequestHandler } from "express";
+import { json, Router, type RequestHandler } from "express";
 import { ObjectId, type Db } from "mongodb";
 import { z } from "zod";
+export { apiError as tuitionError } from "../middleware/http-security.js";
+import { apiError } from "../middleware/http-security.js";
 import { verifyTutor } from "../middleware/authorization.js";
 import { isHostedImage, readImage, uploadImage } from "./tuition-images.js";
 
@@ -36,22 +38,6 @@ export async function ensureTuitionIndexes(db: Db) {
     { key: { createdAt: -1, _id: -1 } },
   ]);
 }
-
-export const tuitionError: ErrorRequestHandler = (error, _req, res, next) => {
-  if (res.headersSent) {
-    next(error);
-    return;
-  }
-  if (error.status === 413) {
-    res.status(413).json({ error: ["/image", "/avatar"].includes(_req.path) ? "Images must be 5 MB or smaller." : "Request body is too large." });
-  } else if (error.status === 400) {
-    res.status(400).json({ error: "Invalid request body." });
-  } else if (error.status === 415) {
-    res.status(415).json({ error: "Unsupported image encoding." });
-  } else {
-    res.status(500).json({ error: "Could not complete the request." });
-  }
-};
 
 export function tuitionRoutes(db: Db, verifyToken: RequestHandler) {
   const router = Router();
@@ -153,6 +139,6 @@ export function tuitionRoutes(db: Db, verifyToken: RequestHandler) {
     else res.status(404).json({ error: "Tuition not found." });
   });
 
-  router.use(tuitionError);
+  router.use(apiError);
   return router;
 }

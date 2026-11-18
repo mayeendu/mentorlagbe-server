@@ -22,7 +22,9 @@ export function adminStatsRoutes(db: Db, verifyToken: RequestHandler) {
     const paymentType = {
       $switch: {
         branches: [
+          // oxlint-disable-next-line unicorn/no-thenable -- MongoDB $switch uses a then field.
           { case: { $eq: ["$provider", "mock"] }, then: "mock" },
+          // oxlint-disable-next-line unicorn/no-thenable -- MongoDB $switch uses a then field.
           { case: { $and: [{ $eq: ["$provider", "stripe"] }, { $eq: ["$testMode", false] }] }, then: "live" },
         ],
         default: "stripeTest",

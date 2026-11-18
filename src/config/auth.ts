@@ -4,8 +4,11 @@ import { APIError, createAuthMiddleware } from "better-auth/api";
 import { ObjectId, type Db } from "mongodb";
 import { apiJwt } from "./jwt.js";
 
-export function createAuth(db: Db, baseURL: string, clientOrigin: string) {
-  const secret = process.env.BETTER_AUTH_SECRET;
+export function createAuth(
+  db: Db, baseURL: string, clientOrigin: string,
+  secret = process.env.BETTER_AUTH_SECRET,
+  production = process.env.NODE_ENV === "production",
+) {
   if (!secret || secret.length < 32) {
     throw new Error("BETTER_AUTH_SECRET must contain at least 32 characters.");
   }
@@ -13,10 +16,13 @@ export function createAuth(db: Db, baseURL: string, clientOrigin: string) {
   return betterAuth({
     baseURL,
     secret,
-    trustedOrigins: [clientOrigin],
+    trustedOrigins: [clientOrigin, baseURL],
+    advanced: { useSecureCookies: production || baseURL.startsWith("https://") },
+    session: { cookieCache: { enabled: false } },
     database: mongodbAdapter(db),
     plugins: [apiJwt(baseURL)],
     emailAndPassword: { enabled: true },
+    onAPIError: { onError: () => console.error("Authentication request failed.") },
     user: {
       additionalFields: {
         role: { type: "string", defaultValue: "student", input: false },
