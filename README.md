@@ -1,6 +1,6 @@
 # MentorLagbe API
 
-Use Node.js 24 and a reachable MongoDB instance. From `server/`, run `npm ci`, copy `.env.example` to `.env`, and set `MONGODB_URI`. The example URI points to a local MongoDB instance. Keep credentials in your local `.env` or deployment environment.
+Use Node.js 24 and a reachable MongoDB replica set or sharded deployment. Tuition creation uses MongoDB transactions to enforce each tutor's posting limit across simultaneous requests. From `server/`, run `npm ci`, copy `.env.example` to `.env`, and set `MONGODB_URI`. The example URI expects a local single-node replica set named `rs0`. Start MongoDB with `--replSet rs0` and initialize it with `rs.initiate()` in `mongosh`, or use a replica set connection string from your MongoDB provider. Keep credentials in your local `.env` or deployment environment.
 
 `PORT` defaults to `5000`. Set `BETTER_AUTH_URL` to `http://localhost:5000` and `CLIENT_URL` to `http://localhost:3000` for local development. Generate a private `BETTER_AUTH_SECRET` with `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"` and put it in `.env`.
 
@@ -10,7 +10,7 @@ Better Auth handles email/password authentication under `/api/auth/`. Public reg
 | --- | --- |
 | `npm run dev` | Start the API in watch mode |
 | `npm run typecheck` | Check TypeScript |
-| `npm test` | Run the authorization tests |
+| `npm test` | Run authorization and tuition tests |
 | `npm run build` | Compile the API to `dist/` |
 | `npm start` | Run the compiled API |
 
@@ -19,3 +19,13 @@ The API starts listening after MongoDB connects. With the default port, `GET htt
 For the role test APIs, use your Better Auth session cookie to obtain a five-minute Bearer token from `GET /api/auth/token`. The frontend exports `authenticatedApiFetch` in `client/src/lib/api-client.ts` for these requests. The public keys are available at `GET /api/auth/jwks`, and Better Auth persists its signing keys in MongoDB.
 
 `GET /api/student/test`, `GET /api/tutor/test`, and `GET /api/admin/test` each require the matching current role from MongoDB. Sign-out prevents minting new tokens from that session. Issued tokens expire independently.
+
+Tutor tuition routes are under `/api/tutor/tuitions`. Use `GET` and `POST` on the collection, `GET`, `PATCH`, and `DELETE` on `/:id`, and `PATCH /:id/active` with an `isActive` boolean. Free tutors can keep two posts, including inactive or pending posts. Deleting a post frees a slot.
+
+Set `IMGBB_API_KEY` in the server environment to enable `POST /api/tutor/tuitions/image`. The route accepts raw JPEG, PNG, or WebP files up to 5 MB and returns an `imageUrl` for the tuition record.
+
+Public reads use `GET /api/tuitions` and `GET /api/tuitions/:id`. The list accepts `search`, `subject`, `classLevel`, `mode` (`home` or `online`), `page`, and `limit` (maximum 50). Both routes serve approved, active posts.
+
+Students can submit to `POST /api/tuitions/:id/applications`, list at `GET /api/student/my-applications`, and cancel a pending application with `DELETE /api/student/my-applications/:id`. Tutors list their applicants with `GET /api/tutor/applicants` and decide pending applications with `PATCH /api/tutor/applicants/:id/accept` or `/reject`.
+
+The tuition suite uses a database double by default. Set `TUITION_TEST_MONGODB_URI` to a test replica set and run `npm test` to exercise the same cases with MongoDB. The suite creates and drops its own temporary database.

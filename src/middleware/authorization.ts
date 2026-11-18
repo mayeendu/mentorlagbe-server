@@ -33,11 +33,12 @@ export function createVerifyToken(db: Db, issuer: string, getJwks: () => Promise
     const user = subject && ObjectId.isValid(subject)
       ? await users.findOne({ _id: new ObjectId(subject) }, { projection: { role: 1 } })
       : null;
-    if (!user) {
+    if (!user || !subject) {
       res.set("WWW-Authenticate", 'Bearer error="invalid_token"').status(401).json({ error: "Invalid Bearer token" });
       return;
     }
 
+    res.locals.authUserId = new ObjectId(subject);
     res.locals.authRole = user.role;
     next();
   };

@@ -5,7 +5,11 @@ import { toNodeHandler } from "better-auth/node";
 import { createAuth } from "./config/auth.js";
 import { connectDB } from "./config/db.js";
 import { createVerifyToken } from "./middleware/authorization.js";
+import { applicationRoutes, ensureApplicationIndexes } from "./routes/applications.js";
+import { adminTuitionRoutes } from "./routes/admin-tuitions.js";
+import { publicTuitionRoutes } from "./routes/public-tuitions.js";
 import { roleTestRoutes } from "./routes/role-tests.js";
+import { ensureTuitionIndexes, tuitionRoutes } from "./routes/tuitions.js";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
@@ -15,6 +19,8 @@ async function startServer() {
     const clientOrigin = new URL(process.env.CLIENT_URL || process.env.CLIENT_ORIGIN || "http://localhost:3000").origin;
     const baseURL = new URL(process.env.BETTER_AUTH_URL || `http://localhost:${PORT}`).origin;
     const db = await connectDB();
+    await ensureTuitionIndexes(db);
+    await ensureApplicationIndexes(db);
     const auth = createAuth(db, baseURL, clientOrigin);
 
     app.use(cors({ origin: [clientOrigin, baseURL], credentials: true }));
@@ -23,8 +29,13 @@ async function startServer() {
       next();
     });
     app.all("/api/auth/*splat", toNodeHandler(auth));
-    app.use(express.json());
+
     const verifyToken = createVerifyToken(db, baseURL, () => auth.api.getJwks());
+    app.use("/api/tutor/tuitions", tuitionRoutes(db, verifyToken));
+    app.use("/api/admin/tuitions", adminTuitionRoutes(db, verifyToken));
+    app.use("/api/tuitions", publicTuitionRoutes(db));
+    app.use("/api", applicationRoutes(db, verifyToken));
+    app.use(express.json());
     app.use("/api", roleTestRoutes(verifyToken));
 
     app.get("/api/health", (_req, res) => {
