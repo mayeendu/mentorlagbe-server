@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "engines": { "node": "24.x" },
   "scripts": {
-    "lint": "oxlint --deny-warnings src test",
+    "lint": "oxlint --deny-warnings src test scripts",
+    "seed:demo": "node scripts/seed-demo-tuitions.mjs",
     "dev": "tsx watch src/index.ts",
     "typecheck": "tsc --noEmit",
     "test": "npm run build && node --test test/*.test.mjs",

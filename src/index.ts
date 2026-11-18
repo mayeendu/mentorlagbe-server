@@ -6,6 +6,7 @@ import { connectDB } from "./config/db.js";
 import { ConfigurationError, readEnvironment } from "./config/environment.js";
 import { createVerifyToken } from "./middleware/authorization.js";
 import { apiCors, apiError, protectAuth, secureApi } from "./middleware/http-security.js";
+import { createReadiness } from "./middleware/readiness.js";
 import { applicationRoutes, ensureApplicationIndexes } from "./routes/applications.js";
 import { adminStatsRoutes } from "./routes/admin-stats.js";
 import { adminUserRoutes, ensureAdminGuard } from "./routes/admin-users.js";
@@ -33,14 +34,9 @@ async function startServer() {
     app.use("/api", secureApi(config.production), ...apiCors(config.clientOrigin, config.authOrigin));
     app.all("/api/auth/*splat", ...protectAuth(config.authOrigin), toNodeHandler(auth));
 
-    app.get("/api/health", async (_req, res) => {
-      try {
-        await db.command({ ping: 1 }, { timeoutMS: 2_000 });
-        res.json({ status: "ok" });
-      } catch {
-        res.status(503).json({ status: "unavailable" });
-      }
-    });
+    const readiness = createReadiness(() => db.command({ ping: 1 }, { timeoutMS: 2_000 }));
+    app.get("/health", secureApi(config.production), readiness.health);
+    app.get("/api/health", readiness.health);
 
     app.use("/api/tutor/tuitions", tuitionRoutes(db, verifyToken));
     app.use("/api/admin/stats", adminStatsRoutes(db, verifyToken));
@@ -64,6 +60,7 @@ async function startServer() {
     });
 
     const shutdown = () => {
+      if (!readiness.beginShutdown()) return;
       const deadline = setTimeout(() => server.closeAllConnections(), 10_000);
       deadline.unref();
       server.close(() => {

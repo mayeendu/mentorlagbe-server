@@ -15,7 +15,7 @@ Better Auth handles email/password authentication under `/api/auth/`. Public reg
 | `npm run build` | Compile the API to `dist/` |
 | `npm start` | Run the compiled API |
 
-The API starts listening after MongoDB connects. With the default port, `GET http://localhost:5000/api/health` returns HTTP 200 with a JSON status of `ok` when MongoDB responds and HTTP 503 otherwise.
+The API starts listening after MongoDB connects. With the default port, `GET http://localhost:5000/health` (also available at `/api/health`) returns HTTP 200 with a JSON status of `ok` when MongoDB responds and HTTP 503 otherwise.
 
 For the role test APIs, use your Better Auth session cookie to obtain a five-minute Bearer token from `GET /api/auth/token`. The frontend exports `authenticatedApiFetch` in `client/src/lib/api-client.ts` for these requests. The public keys are available at `GET /api/auth/jwks`, and Better Auth persists its signing keys in MongoDB.
 
@@ -31,7 +31,17 @@ Students can submit to `POST /api/tuitions/:id/applications`, list at `GET /api/
 
 ### Render preparation
 
-Use the server repository as the Render service root. The Blueprint has auto-deploy disabled and points the health check to `/api/health`. Its build command installs development tooling before compiling and its start command runs the compiled server.
+Create a Node web service using the standalone server repository. Leave **Root Directory** blank to use its repository root. For a combined checkout that contains both apps, use `server` as the Root Directory.
+
+| Render setting | Value |
+| --- | --- |
+| Runtime | Node.js 24.x |
+| Build command | `npm ci --include=dev && npm run build` |
+| Start command | `node dist/index.js` |
+| Health check path | `/health` |
+| Auto-deploy | Off |
+
+The compiled entry point comes from `src/index.ts`. The API listens on `0.0.0.0` and uses Render's `PORT`. The health check performs a bounded MongoDB ping, and shutdown stops accepting new requests, allows in-flight HTTP requests up to 10 seconds, and closes the MongoDB client. The Blueprint configures the service for a later manual deployment.
 
 | Variable | Production setting |
 | --- | --- |
@@ -46,7 +56,7 @@ Use the server repository as the Render service root. The Blueprint has auto-dep
 | `STRIPE_SECRET_KEY` | Live secret key when Stripe is enabled. |
 | `STRIPE_WEBHOOK_SECRET` | Signing secret for the live `/api/payments/webhook` endpoint when Stripe is enabled. |
 
-Better Auth stores Ed25519 signing keys in MongoDB. A separate `JWT_SECRET` is unused. Include the Render service in Atlas network access and give its database user only the application permissions needed for authentication, indexes and transactions. Set secrets in the host environment and leave local environment files out of Git. The mock database is isolated and cannot be selected in production. Validate the public origins, readiness check and hosted login before enabling traffic.
+Better Auth stores Ed25519 signing keys in MongoDB. A separate `JWT_SECRET` is unused. Include the Render service in Atlas network access and give its database user only the application permissions needed for authentication, indexes and transactions. Set secrets in the host environment and leave local environment files out of Git. The mock database is isolated and cannot be selected in production. Validate the public origins, readiness check and hosted login before enabling traffic. Keep Better Auth cookies host-only and secure with the existing same-origin Next.js auth rewrite. The browser should call the frontend's `/api/auth/*` routes and send its JWT to the configured backend for other API calls. There is no need to enable cross-site cookies for this setup.
 
 ### Payment modes
 
