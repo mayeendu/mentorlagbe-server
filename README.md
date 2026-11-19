@@ -51,12 +51,13 @@ The compiled entry point comes from `src/index.ts`. The API listens on `0.0.0.0`
 | `BETTER_AUTH_URL` | Exact public HTTPS Express origin. It is also the Bearer JWT issuer and audience. |
 | `BETTER_AUTH_SECRET` | Required, private, at least 32 characters. |
 | `MONGODB_URI` | Required Atlas or other TLS-enabled MongoDB replica-set or sharded connection string with verified certificates. |
+| `MONGODB_DATABASE` | Set to `mentorlagbe_mock` to serve the existing demo database with `PAYMENT_MODE=disabled`. Leave unset for the default database. |
 | `IMGBB_API_KEY` | Set to enable tuition and avatar uploads. |
 | `PAYMENT_MODE` | `disabled` until live Stripe is ready, or explicitly set `stripe`. |
 | `STRIPE_SECRET_KEY` | Live secret key when Stripe is enabled. |
 | `STRIPE_WEBHOOK_SECRET` | Signing secret for the live `/api/payments/webhook` endpoint when Stripe is enabled. |
 
-Better Auth stores Ed25519 signing keys in MongoDB. A separate `JWT_SECRET` is unused. Include the Render service in Atlas network access and give its database user only the application permissions needed for authentication, indexes and transactions. Set secrets in the host environment and leave local environment files out of Git. The mock database is isolated and cannot be selected in production. Validate the public origins, readiness check and hosted login before enabling traffic. Keep Better Auth cookies host-only and secure with the existing same-origin Next.js auth rewrite. The browser should call the frontend's `/api/auth/*` routes and send its JWT to the configured backend for other API calls. There is no need to enable cross-site cookies for this setup.
+Better Auth stores Ed25519 signing keys in MongoDB. A separate `JWT_SECRET` is unused. Include the API host in Atlas network access and give its database user the permissions needed for authentication, indexes and transactions on the selected database. Set secrets in the host environment and leave local environment files out of Git. When switching to the demo database, check its users, roles and listings before exposing it publicly. Sign in again with an account from that database and use the Better Auth secret that encrypted its existing signing keys. Validate the public origins, readiness check and hosted login before enabling traffic. Keep Better Auth cookies host-only and secure with the existing same-origin Next.js auth rewrite. The browser should call the frontend's `/api/auth/*` routes and send its JWT to the configured backend for other API calls. There is no need to enable cross-site cookies for this setup.
 
 ### Payment modes
 

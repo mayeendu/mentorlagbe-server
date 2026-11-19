@@ -9,6 +9,7 @@ import { decodeJwt } from "jose";
 import { ObjectId } from "mongodb";
 import { apiJwt } from "../dist/config/jwt.js";
 import { createVerifyToken } from "../dist/middleware/authorization.js";
+import { protectAuth, secureApi } from "../dist/middleware/http-security.js";
 import { roleTestRoutes } from "../dist/routes/role-tests.js";
 
 describe("Bearer authorization", () => {
@@ -20,7 +21,7 @@ describe("Bearer authorization", () => {
     baseURL: issuer,
     secret: "authorization-tests-only-secret-8d3a4591f7c2",
     database: memoryAdapter({ user: [], session: [], account: [], verification: [], jwks: [] }),
-    advanced: { database: { generateId: () => new ObjectId().toHexString() } },
+    advanced: { useSecureCookies: true, database: { generateId: () => new ObjectId().toHexString() } },
     plugins: [apiJwt(issuer)],
     emailAndPassword: { enabled: true },
   });
@@ -39,7 +40,8 @@ describe("Bearer authorization", () => {
     },
   };
   const app = express();
-  app.all("/api/auth/*splat", toNodeHandler(auth));
+  app.use("/api", secureApi(true));
+  app.all("/api/auth/*splat", ...protectAuth(issuer), toNodeHandler(auth));
   app.use("/api", roleTestRoutes(createVerifyToken(db, issuer, () => auth.api.getJwks())));
   const server = app.listen(0, "127.0.0.1");
   let api;
@@ -56,9 +58,12 @@ describe("Bearer authorization", () => {
         asResponse: true,
       });
       assert.equal(signup.status, 200);
-      const cookie = signup.headers.getSetCookie().map((value) => value.split(";")[0]).join("; ");
+      const cookies = signup.headers.getSetCookie();
+      assert.ok(cookies.some((value) => value.startsWith("__Secure-") && /; Secure\b/i.test(value)));
+      const cookie = cookies.map((value) => value.split(";")[0]).join("; ");
       const response = await fetch(`${api}/auth/token`, { headers: { cookie } });
       assert.equal(response.status, 200);
+      assert.match(response.headers.get("cache-control") ?? "", /\bno-store\b/);
       const { token } = await response.json();
       const claims = decodeJwt(token);
       assert.ok(claims.sub);

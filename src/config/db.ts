@@ -1,6 +1,5 @@
 import { MongoClient } from "mongodb";
 import type { readEnvironment } from "./environment.js";
-import { paymentDatabase } from "./payment-mode.js";
 
 type DatabaseConfig = Pick<ReturnType<typeof readEnvironment>, "mongoUri" | "production">;
 
@@ -13,11 +12,11 @@ export function createMongoClient(config: DatabaseConfig) {
   });
 }
 
-export async function connectDB(config: DatabaseConfig) {
+export async function connectDB(config: DatabaseConfig & { databaseName: string }) {
   const client = createMongoClient(config);
   try {
     await client.connect();
-    const db = client.db(paymentDatabase());
+    const db = client.db(config.databaseName);
     await db.command({ ping: 1 }, { timeoutMS: 2_000 });
     if (config.production) {
       const topology = await db.command({ hello: 1 }, { timeoutMS: 2_000 });

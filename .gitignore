@@ -10,3 +10,5 @@ dist/
 *.p12
 *.pfx
 credentials*.json
+
+.vercel

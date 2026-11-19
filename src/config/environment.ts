@@ -1,4 +1,4 @@
-import { paymentMode } from "./payment-mode.js";
+import { paymentDatabase, paymentMode } from "./payment-mode.js";
 
 export class ConfigurationError extends Error {}
 
@@ -58,6 +58,10 @@ export function readEnvironment(env = process.env) {
   let payments;
   try { payments = paymentMode(env); }
   catch { throw new ConfigurationError("PAYMENT_MODE must be disabled, stripe, or mock (development only)."); }
+  const databaseOverride = env.MONGODB_DATABASE;
+  if (databaseOverride !== undefined && (databaseOverride !== "mentorlagbe_mock" || payments !== "disabled")) {
+    throw new ConfigurationError("MONGODB_DATABASE can be set to mentorlagbe_mock only when PAYMENT_MODE is disabled.");
+  }
   if (payments === "stripe") {
     const secret = required(env, "STRIPE_SECRET_KEY");
     const webhook = required(env, "STRIPE_WEBHOOK_SECRET");
@@ -67,5 +71,6 @@ export function readEnvironment(env = process.env) {
     }
   }
 
-  return { authOrigin, clientOrigin, port, production, authSecret, mongoUri };
+  const databaseName = databaseOverride ?? paymentDatabase(env);
+  return { authOrigin, clientOrigin, port, production, authSecret, mongoUri, databaseName };
 }

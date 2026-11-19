@@ -22,7 +22,15 @@ export function createAuth(
     database: mongodbAdapter(db),
     plugins: [apiJwt(baseURL)],
     emailAndPassword: { enabled: true },
-    onAPIError: { onError: () => console.error("Authentication request failed.") },
+    onAPIError: {
+      onError: (error) => {
+        if (error instanceof Error && error.message.startsWith("Failed to decrypt private key.")) {
+          console.error("API token signing key could not be decrypted. Check that BETTER_AUTH_SECRET matches the secret used to create the stored JWKS.");
+          return;
+        }
+        console.error("Authentication request failed.");
+      },
+    },
     user: {
       additionalFields: {
         role: { type: "string", defaultValue: "student", input: false },

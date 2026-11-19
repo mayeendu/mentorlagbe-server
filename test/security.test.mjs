@@ -55,6 +55,14 @@ test("fails closed on mock and unconfigured Stripe in production", () => {
   assert.equal(paymentDatabase({ NODE_ENV: "development", PAYMENT_MODE: "mock" }), "mentorlagbe_mock");
 });
 
+test("selects the existing demo database on a hosted API with payments disabled", () => {
+  assert.equal(readEnvironment(env).databaseName, "mentorlagbe");
+  const demoEnv = { ...env, MONGODB_DATABASE: "mentorlagbe_mock" };
+  assert.equal(readEnvironment(demoEnv).databaseName, "mentorlagbe_mock");
+  assert.throws(() => readEnvironment({ ...demoEnv, PAYMENT_MODE: "stripe" }), /MONGODB_DATABASE/);
+  assert.throws(() => readEnvironment({ ...demoEnv, MONGODB_DATABASE: "other" }), /MONGODB_DATABASE/);
+});
+
 let server;
 let api;
 before(async () => {

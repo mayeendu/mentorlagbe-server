@@ -18,7 +18,7 @@ import { publicTuitionRoutes } from "./routes/public-tuitions.js";
 import { roleTestRoutes } from "./routes/role-tests.js";
 import { ensureTuitionIndexes, tuitionRoutes } from "./routes/tuitions.js";
 
-async function startServer() {
+async function createServerApp() {
   const config = readEnvironment();
   const db = await connectDB(config);
   try {
@@ -50,33 +50,42 @@ async function startServer() {
     app.use("/api", (_req, res) => { res.status(404).json({ error: "API route not found." }); });
     app.use(apiError);
 
-    const server = app.listen(config.port, "0.0.0.0", () => console.log("API listening on port " + config.port));
-    server.headersTimeout = 10_000;
-    server.requestTimeout = 30_000;
-    server.on("error", () => {
-      console.error("Could not start the HTTP listener.");
-      process.exitCode = 1;
-      void db.client.close().catch(() => {});
-    });
-
-    const shutdown = () => {
-      if (!readiness.beginShutdown()) return;
-      const deadline = setTimeout(() => server.closeAllConnections(), 10_000);
-      deadline.unref();
-      server.close(() => {
-        clearTimeout(deadline);
-        void db.client.close().catch(() => { process.exitCode = 1; });
-      });
-    };
-    process.once("SIGTERM", shutdown);
-    process.once("SIGINT", shutdown);
+    return { app, config, db, readiness };
   } catch (error) {
     await db.client.close();
     throw error;
   }
 }
 
-void startServer().catch((error: unknown) => {
+async function startServer() {
+  const { app, config, db, readiness } = await createServerApp();
+  const server = app.listen(config.port, "0.0.0.0", () => console.log("API listening on port " + config.port));
+  server.headersTimeout = 10_000;
+  server.requestTimeout = 30_000;
+  server.on("error", () => {
+    console.error("Could not start the HTTP listener.");
+    process.exitCode = 1;
+    void db.client.close().catch(() => { });
+  });
+
+  const shutdown = () => {
+    if (!readiness.beginShutdown()) return;
+    const deadline = setTimeout(() => server.closeAllConnections(), 10_000);
+    deadline.unref();
+    server.close(() => {
+      clearTimeout(deadline);
+      void db.client.close().catch(() => { process.exitCode = 1; });
+    });
+  };
+  process.once("SIGTERM", shutdown);
+  process.once("SIGINT", shutdown);
+}
+
+const deployedApp = process.env.VERCEL === "1" ? (await createServerApp()).app : undefined;
+
+if (!deployedApp) void startServer().catch((error: unknown) => {
   console.error(error instanceof ConfigurationError ? error.message : "API startup failed. Check MongoDB connectivity, topology, and permissions.");
   process.exitCode = 1;
 });
+
+export default deployedApp;
